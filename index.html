@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Pipeline — AIG Jira</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridjs/dist/theme/mermaid.min.css">
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f7f7f8;
+    color: #1a1a1a;
+    padding: 24px;
+  }
+  .container { max-width: 1400px; margin: 0 auto; }
+
+  .header { margin-bottom: 20px; }
+  .header h1 { margin: 0 0 4px 0; font-size: 26px; font-weight: 700; color: #0a0a0a; }
+  .header .sub { color: #666; font-size: 13px; }
+  .header .sub a { color: #2563eb; text-decoration: none; }
+  .header .sub a:hover { text-decoration: underline; }
+
+  .snapshot-note {
+    background: #eff6ff;
+    border-left: 3px solid #2563eb;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #1e3a8a;
+    margin-bottom: 18px;
+  }
+  .snapshot-note strong { font-weight: 600; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 22px; }
+  .card { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 16px 18px; }
+  .card .label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .card .num { font-size: 30px; font-weight: 700; color: #0a0a0a; line-height: 1; }
+  .card.claude { border-left: 3px solid #d97706; }
+  .card.approved { border-left: 3px solid #16a34a; }
+  .card.review { border-left: 3px solid #2563eb; }
+  .card.canceled { border-left: 3px solid #9ca3af; }
+  .card.total { border-left: 3px solid #0a0a0a; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; align-items: center; }
+  .pill {
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid #e5e5e5;
+    background: #fff;
+    cursor: pointer;
+    font-size: 13px;
+    color: #444;
+    transition: all 0.1s;
+  }
+  .pill:hover { background: #f3f4f6; }
+  .pill.active { background: #0a0a0a; color: #fff; border-color: #0a0a0a; }
+  .pill .count {
+    opacity: 0.6;
+    margin-left: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .b-awaiting { background: #dbeafe; color: #1e40af; }
+  .b-approved { background: #dcfce7; color: #166534; }
+  .b-cond { background: #fef3c7; color: #92400e; }
+  .b-canceled { background: #f3f4f6; color: #6b7280; }
+  .b-done { background: #e0e7ff; color: #3730a3; }
+  .b-default { background: #f3f4f6; color: #374151; }
+
+  .p1 { color: #b91c1c; font-weight: 600; }
+  .p2 { color: #c2410c; font-weight: 600; }
+  .p3 { color: #4b5563; }
+  .p4 { color: #6b7280; }
+
+  .claude-tag {
+    display: inline-block;
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  a.key-link {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 600;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    font-size: 12px;
+  }
+  a.key-link:hover { text-decoration: underline; }
+
+  .summary-cell { color: #111; font-size: 13px; }
+  .grid-wrapper { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; overflow: hidden; }
+  .gridjs-wrapper { box-shadow: none !important; }
+  .gridjs-table { font-size: 13px; }
+  .gridjs-th {
+    background: #fafafa !important;
+    color: #4b5563 !important;
+    font-size: 11px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .gridjs-td { padding: 10px 12px !important; vertical-align: top; }
+
+  .footer {
+    margin-top: 24px;
+    padding: 16px 0;
+    border-top: 1px solid #e5e5e5;
+    color: #6b7280;
+    font-size: 12px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>Claude Pipeline — AIG Jira</h1>
+    <div class="sub">
+      Tracking Claude-related and MCP-connector intake tickets in FanDuel's AIG project.
+      <a href="https://fanduel.atlassian.net/jira/servicedesk/projects/AIG/issues?jql=project%20%3D%20%22AIG%22%20AND%20(text%20~%20%22Claude%22%20OR%20text%20~%20%22connector%22%20OR%20text%20~%20%22MCP%22)%20ORDER%20BY%20updated%20DESC" target="_blank" rel="noopener">Open live filter in Jira →</a>
+    </div>
+  </div>
+
+  <div class="snapshot-note">
+    <strong>Snapshot:</strong> May 14, 2026 at 03:55 PM ET. Manual refresh — see <a href="https://github.com" style="color:#1e3a8a;text-decoration:underline" target="_blank">README</a> in the repo for how to update.
+  </div>
+
+  <div class="cards">
+    <div class="card total"><div class="label">Total</div><div class="num" id="c-total">—</div></div>
+    <div class="card claude"><div class="label">Claude-specific</div><div class="num" id="c-claude">—</div></div>
+    <div class="card review"><div class="label">Awaiting Review</div><div class="num" id="c-review">—</div></div>
+    <div class="card approved"><div class="label">Approved</div><div class="num" id="c-approved">—</div></div>
+    <div class="card canceled"><div class="label">Canceled</div><div class="num" id="c-canceled">—</div></div>
+  </div>
+
+  <div class="controls">
+    <button class="pill active" data-filter="claude">Claude-specific <span class="count" id="n-claude"></span></button>
+    <button class="pill" data-filter="active">In Flight <span class="count" id="n-active"></span></button>
+    <button class="pill" data-filter="approved">Approved <span class="count" id="n-approved"></span></button>
+    <button class="pill" data-filter="awaiting">Awaiting Review <span class="count" id="n-awaiting"></span></button>
+    <button class="pill" data-filter="canceled">Canceled <span class="count" id="n-canceled"></span></button>
+    <button class="pill" data-filter="all">All <span class="count" id="n-all"></span></button>
+  </div>
+
+  <div class="grid-wrapper">
+    <div id="table-mount"></div>
+  </div>
+
+  <div class="footer">
+    Data captured from Jira on May 14, 2026 at 03:55 PM ET. Source: <code>project = "AIG" AND (text ~ "Claude" OR text ~ "connector" OR text ~ "MCP")</code>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gridjs/dist/gridjs.umd.js"></script>
+<script>
+  // ===== Data (snapshot) =====
+  const ISSUES = [
+  {
+    "key": "AIG-281",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-281",
+    "summary": "MCP Monday.com MCP  Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Jeremy Berg",
+    "updated": "2026-05-14T15:32:51.739-0400",
+    "created": "2026-05-14T15:29:54.565-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-280",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-280",
+    "summary": "MCP Netskope MCP Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Hernaldo Morales",
+    "updated": "2026-05-14T10:45:00.495-0400",
+    "created": "2026-05-14T10:38:33.912-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-212",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-212",
+    "summary": "Databricks Connector for Claude AI Intake",
+    "status": "Canceled",
+    "priority": "P4-Medium",
+    "reporter": "Bentley Varghese",
+    "updated": "2026-05-14T08:56:45.802-0400",
+    "created": "2026-03-25T14:45:27.276-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-234",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-234",
+    "summary": "DataBricks MCP Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Scott Hall",
+    "updated": "2026-05-14T08:56:27.846-0400",
+    "created": "2026-04-07T10:20:00.471-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-279",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-279",
+    "summary": "MCP Storybloq Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Brian Daviadoff",
+    "updated": "2026-05-14T07:58:47.894-0400",
+    "created": "2026-05-14T07:58:38.218-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-278",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-278",
+    "summary": "MCP Storybloq Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Brian Daviadoff",
+    "updated": "2026-05-14T07:58:47.410-0400",
+    "created": "2026-05-14T07:49:58.032-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-272",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-272",
+    "summary": "Worthy Ads MCP Intake",
+    "status": "Canceled",
+    "priority": "P4-Medium",
+    "reporter": "Tara Hilsenrod",
+    "updated": "2026-05-13T13:15:00.314-0400",
+    "created": "2026-05-08T12:44:43.597-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-18",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-18",
+    "summary": "Salesforce AgentForce: internal use only",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Josh Ives",
+    "updated": "2026-05-12T11:03:13.575-0400",
+    "created": "2025-03-05T15:50:41.587-0500",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-68",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-68",
+    "summary": "Anthropic - Claude Code AI Coding Agent ",
+    "status": "Conditionally Approved",
+    "priority": "P4-Medium",
+    "reporter": "Alexandru Adam",
+    "updated": "2026-05-12T11:03:13.087-0400",
+    "created": "2025-07-15T01:02:39.220-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-94",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-94",
+    "summary": "Amazon Q Intake",
+    "status": "Awaiting Review",
+    "priority": "P5-Low",
+    "reporter": "Rory Kiefer",
+    "updated": "2026-05-12T11:03:12.642-0400",
+    "created": "2025-09-08T12:35:11.965-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-95",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-95",
+    "summary": "ChatGPT - Enable Recording, Model Switcher, and Outlook Connectors Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Nitin Punn",
+    "updated": "2026-05-12T11:03:12.555-0400",
+    "created": "2025-09-12T15:18:04.029-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-97",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-97",
+    "summary": "Cerebro Whitelist Models Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Adam Richman",
+    "updated": "2026-05-12T11:03:12.460-0400",
+    "created": "2025-09-18T10:47:59.311-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-136",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-136",
+    "summary": "Google Gemini Intake",
+    "status": "Awaiting Review",
+    "priority": "P1-Blocker",
+    "reporter": "Stephen Mothes",
+    "updated": "2026-05-12T11:03:11.177-0400",
+    "created": "2025-12-16T11:24:46.296-0500",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-137",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-137",
+    "summary": "Anecdotes.ai Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Teresa Arevalo",
+    "updated": "2026-05-12T11:03:11.105-0400",
+    "created": "2025-12-16T13:03:47.269-0500",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-149",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-149",
+    "summary": "Service Desk Agentic AI (Jarvis 2.0) Intake",
+    "status": "Awaiting Review",
+    "priority": "P2-Critical",
+    "reporter": "Kishor Gyawali",
+    "updated": "2026-05-12T11:03:10.559-0400",
+    "created": "2026-01-15T12:15:00.540-0500",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-175",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-175",
+    "summary": "Anthropic- Claude Cowork Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Jesse Kauderer-Abrams",
+    "updated": "2026-05-12T11:03:10.044-0400",
+    "created": "2026-02-17T16:31:50.041-0500",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-177",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-177",
+    "summary": "Models Approval of Opus 4.6 and Sonnet 4.6",
+    "status": "Conditionally Approved",
+    "priority": "P1-Blocker",
+    "reporter": "Alexandru Adam",
+    "updated": "2026-05-12T11:03:09.971-0400",
+    "created": "2026-02-19T11:36:13.652-0500",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-194",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-194",
+    "summary": "Anthropic - Claude Enterprise Chat",
+    "status": "Conditionally Approved",
+    "priority": "P1-Blocker",
+    "reporter": "Teresa Arevalo",
+    "updated": "2026-05-12T11:03:09.844-0400",
+    "created": "2026-03-04T12:32:31.815-0500",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-274",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-274",
+    "summary": "code-review-graph MCP Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Andrew MacKenzie",
+    "updated": "2026-05-11T10:19:47.632-0400",
+    "created": "2026-05-11T10:12:05.376-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-268",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-268",
+    "summary": "Meta MCP Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Emily Ma",
+    "updated": "2026-05-08T16:06:15.366-0400",
+    "created": "2026-05-06T11:12:00.561-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-270",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-270",
+    "summary": "PagerDuty MCP Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Filipe Neves",
+    "updated": "2026-05-08T09:18:12.932-0400",
+    "created": "2026-05-06T14:13:51.116-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-198",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-198",
+    "summary": "DataDog MCP Intake",
+    "status": "Decision Approved",
+    "priority": "P4-Medium",
+    "reporter": "Brian Daviadoff",
+    "updated": "2026-05-07T09:13:34.577-0400",
+    "created": "2026-03-11T14:02:03.351-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-215",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-215",
+    "summary": "Sanity MCP/connector Intake",
+    "status": "Canceled",
+    "priority": "P4-Medium",
+    "reporter": "Bruno Flavio",
+    "updated": "2026-05-07T09:09:08.775-0400",
+    "created": "2026-03-27T07:56:59.459-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-188",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-188",
+    "summary": "devstack-mcp Intake",
+    "status": "Decision Approved",
+    "priority": "P4-Medium",
+    "reporter": "Peter Beegle",
+    "updated": "2026-05-06T16:19:15.148-0400",
+    "created": "2026-02-26T11:17:17.272-0500",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-227",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-227",
+    "summary": "Slack MCP Intake",
+    "status": "Decision Approved",
+    "priority": "P4-Medium",
+    "reporter": "Aayush Patel",
+    "updated": "2026-05-06T16:09:45.561-0400",
+    "created": "2026-04-01T16:01:53.979-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-190",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-190",
+    "summary": "FIgma Console MCP Intake",
+    "status": "Decision Approved",
+    "priority": "P4-Medium",
+    "reporter": "Matias Greco",
+    "updated": "2026-05-06T16:04:03.457-0400",
+    "created": "2026-03-02T06:40:14.847-0500",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-236",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-236",
+    "summary": "prefab-mcp Intake",
+    "status": "Decision Approved",
+    "priority": "P4-Medium",
+    "reporter": "Andrew Magana",
+    "updated": "2026-05-06T15:43:21.591-0400",
+    "created": "2026-04-07T12:41:34.440-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-249",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-249",
+    "summary": "Figma Remote MCP for Claude Code Intake",
+    "status": "Canceled",
+    "priority": "P4-Medium",
+    "reporter": "Brian Daviadoff",
+    "updated": "2026-05-06T15:43:07.413-0400",
+    "created": "2026-04-15T15:18:05.104-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-251",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-251",
+    "summary": "MCP github Intake",
+    "status": "Decision Approved",
+    "priority": "P4-Medium",
+    "reporter": "Paulo Germano",
+    "updated": "2026-05-06T15:42:49.518-0400",
+    "created": "2026-04-22T08:05:54.631-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-253",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-253",
+    "summary": "betty api Intake",
+    "status": "Decision Approved",
+    "priority": "P4-Medium",
+    "reporter": "Yunhu Choi",
+    "updated": "2026-05-06T15:42:33.916-0400",
+    "created": "2026-04-23T12:39:43.797-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-254",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-254",
+    "summary": "Figma MCP Intake",
+    "status": "Decision Approved",
+    "priority": "P4-Medium",
+    "reporter": "Lauren Forstater",
+    "updated": "2026-05-06T15:40:45.137-0400",
+    "created": "2026-04-28T11:18:55.959-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-269",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-269",
+    "summary": "Miro MCP Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Filipe Neves",
+    "updated": "2026-05-06T15:29:15.907-0400",
+    "created": "2026-05-06T14:13:16.619-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-265",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-265",
+    "summary": "Datafold MCP Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Justin Muller",
+    "updated": "2026-05-06T14:06:11.928-0400",
+    "created": "2026-05-05T09:18:00.523-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-261",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-261",
+    "summary": "Context7 MCP Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Izabela Borges",
+    "updated": "2026-05-06T13:35:41.775-0400",
+    "created": "2026-05-04T05:21:09.707-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-259",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-259",
+    "summary": "Coupa Smart Intake and Orchestration  MCP Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Jasmine Chao",
+    "updated": "2026-05-06T09:43:01.434-0400",
+    "created": "2026-04-30T16:05:34.126-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-256",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-256",
+    "summary": "Wiz MCP Server Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Suved Adkar",
+    "updated": "2026-05-06T09:42:52.946-0400",
+    "created": "2026-04-29T12:16:08.076-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-243",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-243",
+    "summary": "Asana MCP for Claude Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Phil Mayer",
+    "updated": "2026-05-06T08:50:53.509-0400",
+    "created": "2026-04-10T14:42:39.064-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-260",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-260",
+    "summary": "Atlassian Rovo & MCP Intake",
+    "status": "Canceled",
+    "priority": "P4-Medium",
+    "reporter": "Austin Boyd",
+    "updated": "2026-05-05T10:05:15.663-0400",
+    "created": "2026-05-01T11:10:43.775-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-214",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-214",
+    "summary": "Tines AI \u2014 Native Claude Code Integration Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Connor Murphy",
+    "updated": "2026-05-04T16:22:08.219-0400",
+    "created": "2026-03-26T14:11:44.830-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-245",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-245",
+    "summary": "O'Reilly MCP Serever Intake",
+    "status": "Canceled",
+    "priority": "P4-Medium",
+    "reporter": "Jo\u00e3o Oliveira",
+    "updated": "2026-05-04T10:38:18.635-0400",
+    "created": "2026-04-13T05:37:06.269-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-252",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-252",
+    "summary": "Language Tool/Grammar/Spelling Checker MCP Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "James Seip",
+    "updated": "2026-05-01T08:07:16.785-0400",
+    "created": "2026-04-22T17:52:47.675-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-255",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-255",
+    "summary": "approval for FIGMA MCP access in Claude",
+    "status": "DONE",
+    "priority": "P4-Medium",
+    "reporter": "Lauren Forstater",
+    "updated": "2026-04-29T12:00:00.367-0400",
+    "created": "2026-04-28T13:19:31.060-0400",
+    "issuetype": "Sub-task"
+  },
+  {
+    "key": "AIG-203",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-203",
+    "summary": "Burp MCP Server Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Bruno Caseiro",
+    "updated": "2026-04-29T11:39:31.559-0400",
+    "created": "2026-03-13T10:49:30.055-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-246",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-246",
+    "summary": "Deep Code Graph MCP Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Izabela Borges",
+    "updated": "2026-04-28T15:34:26.561-0400",
+    "created": "2026-04-14T08:49:07.727-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-244",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-244",
+    "summary": "Sanity MCP Intake",
+    "status": "Canceled",
+    "priority": "P4-Medium",
+    "reporter": "Zack Jenis",
+    "updated": "2026-04-28T14:56:00.975-0400",
+    "created": "2026-04-10T16:10:09.563-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-242",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-242",
+    "summary": "https://github.com/containers/kubernetes-mcp-server Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Bruno Alves",
+    "updated": "2026-04-28T14:21:05.487-0400",
+    "created": "2026-04-09T12:55:54.993-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-239",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-239",
+    "summary": "Gateway-native tool that agents in the AgentCore ensemble can invoke synchronously via MCP protocol. Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Sethu Lak",
+    "updated": "2026-04-28T14:16:18.417-0400",
+    "created": "2026-04-08T04:09:08.007-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-237",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-237",
+    "summary": "XtremePush MCP Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Max Rothman",
+    "updated": "2026-04-28T13:44:50.271-0400",
+    "created": "2026-04-07T14:30:35.936-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-228",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-228",
+    "summary": "SonarQube MCP Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Noah Druss",
+    "updated": "2026-04-28T12:03:27.862-0400",
+    "created": "2026-04-02T12:16:18.158-0400",
+    "issuetype": "[System] Service request"
+  },
+  {
+    "key": "AIG-235",
+    "webUrl": "https://fanduel.atlassian.net/browse/AIG-235",
+    "summary": "Anecdotes - MCP Proxy Offerings Intake",
+    "status": "Awaiting Review",
+    "priority": "P4-Medium",
+    "reporter": "Jeff Earley",
+    "updated": "2026-04-28T11:41:40.609-0400",
+    "created": "2026-04-07T10:48:06.375-0400",
+    "issuetype": "[System] Service request"
+  }
+];
+  const SNAPSHOT_ISO = "2026-05-14T15:55:59.725196";
+
+  let CURRENT_FILTER = "claude";
+
+  // ===== Helpers =====
+  const CLAUDE_KEYWORDS = [
+    "claude",
+    "anthropic",
+    "opus 4",
+    "sonnet 4",
+    "haiku 4",
+    "cowork"
+  ];
+
+  function mentionsClaude(i) {
+    const s = (i.summary || "").toLowerCase();
+    return CLAUDE_KEYWORDS.some(k => s.includes(k));
+  }
+  function isApproved(i) {
+    const n = (i.status || "").toLowerCase();
+    return n === "decision approved" || n.includes("conditionally");
+  }
+  function isAwaiting(i) { return (i.status || "").toLowerCase().includes("awaiting"); }
+  function isCanceled(i) { return (i.status || "").toLowerCase().includes("cancel"); }
+
+  function statusBadge(name) {
+    const n = (name || "").toLowerCase();
+    let cls = "b-default";
+    if (n.includes("awaiting")) cls = "b-awaiting";
+    else if (n === "decision approved") cls = "b-approved";
+    else if (n.includes("conditionally")) cls = "b-cond";
+    else if (n.includes("cancel")) cls = "b-canceled";
+    else if (n.includes("done")) cls = "b-done";
+    return `<span class="badge ${cls}">${name || "—"}</span>`;
+  }
+  function priorityClass(p) {
+    const s = (p || "").toLowerCase();
+    if (s.includes("p1")) return "p1";
+    if (s.includes("p2")) return "p2";
+    if (s.includes("p3")) return "p3";
+    return "p4";
+  }
+  function fmtDate(iso) {
+    if (!iso) return "—";
+    try {
+      const d = new Date(iso);
+      const now = new Date();
+      const diffDays = Math.floor((now - d) / (1000*60*60*24));
+      if (diffDays === 0) return "today";
+      if (diffDays === 1) return "1 day ago";
+      if (diffDays < 14) return diffDays + " days ago";
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    } catch(e) { return iso; }
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+  }
+
+  function applyFilter(issues, filter) {
+    switch(filter) {
+      case "claude": return issues.filter(mentionsClaude);
+      case "approved": return issues.filter(isApproved);
+      case "awaiting": return issues.filter(isAwaiting);
+      case "canceled": return issues.filter(isCanceled);
+      case "active": return issues.filter(i => !isCanceled(i));
+      default: return issues;
+    }
+  }
+
+  // ===== Rendering =====
+  function renderCards(issues) {
+    document.getElementById("c-total").textContent = issues.length;
+    document.getElementById("c-claude").textContent = issues.filter(mentionsClaude).length;
+    document.getElementById("c-review").textContent = issues.filter(isAwaiting).length;
+    document.getElementById("c-approved").textContent = issues.filter(isApproved).length;
+    document.getElementById("c-canceled").textContent = issues.filter(isCanceled).length;
+
+    document.getElementById("n-claude").textContent = "(" + issues.filter(mentionsClaude).length + ")";
+    document.getElementById("n-active").textContent = "(" + issues.filter(i => !isCanceled(i)).length + ")";
+    document.getElementById("n-approved").textContent = "(" + issues.filter(isApproved).length + ")";
+    document.getElementById("n-awaiting").textContent = "(" + issues.filter(isAwaiting).length + ")";
+    document.getElementById("n-canceled").textContent = "(" + issues.filter(isCanceled).length + ")";
+    document.getElementById("n-all").textContent = "(" + issues.length + ")";
+  }
+
+  function renderTable(issues) {
+    const mount = document.getElementById("table-mount");
+    mount.innerHTML = "";
+    if (issues.length === 0) {
+      mount.innerHTML = '<div style="padding:48px;text-align:center;color:#6b7280">No tickets match this filter.</div>';
+      return;
+    }
+    const rows = issues.map(i => {
+      const claudeTag = mentionsClaude(i) ? '<span class="claude-tag">CLAUDE</span>' : '';
+      const summary = (i.summary || "").replace(/\bIntake\b\s*$/i, "").trim();
+      return [
+        `<a class="key-link" href="${i.webUrl}" target="_blank" rel="noopener">${i.key}</a>`,
+        `<span class="summary-cell">${escapeHtml(summary)}${claudeTag}</span>`,
+        statusBadge(i.status),
+        `<span class="${priorityClass(i.priority)}">${i.priority || "—"}</span>`,
+        i.reporter || "—",
+        fmtDate(i.updated)
+      ];
+    });
+    new gridjs.Grid({
+      columns: [
+        { name: "Key", width: "90px", formatter: c => gridjs.html(c) },
+        { name: "Summary", formatter: c => gridjs.html(c) },
+        { name: "Status", width: "180px", formatter: c => gridjs.html(c) },
+        { name: "Priority", width: "110px", formatter: c => gridjs.html(c) },
+        { name: "Reporter", width: "150px" },
+        { name: "Updated", width: "120px" }
+      ],
+      data: rows,
+      sort: true,
+      search: { enabled: true, placeholder: "Search summary, key, reporter…" },
+      pagination: { enabled: true, limit: 25 }
+    }).render(mount);
+  }
+
+  function rerender() { renderTable(applyFilter(ISSUES, CURRENT_FILTER)); }
+
+  document.querySelectorAll(".pill").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".pill").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      CURRENT_FILTER = btn.dataset.filter;
+      rerender();
+    });
+  });
+
+  renderCards(ISSUES);
+  rerender();
+</script>
+</body>
+</html>
