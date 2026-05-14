@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+<meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet">
+<meta name="referrer" content="no-referrer">
 <title>Claude Pipeline — AIG Jira</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridjs/dist/theme/mermaid.min.css">
 <style>
@@ -118,9 +121,88 @@
     font-size: 12px;
     text-align: center;
   }
+
+  /* ===== Password gate ===== */
+  #gate {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(135deg, #0a0a0a 0%, #1f2937 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
+  #gate.hidden { display: none; }
+  .gate-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 32px 36px;
+    width: 92%;
+    max-width: 380px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    text-align: center;
+  }
+  .gate-card h2 {
+    margin: 0 0 6px 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0a0a0a;
+  }
+  .gate-card p {
+    margin: 0 0 20px 0;
+    font-size: 13px;
+    color: #6b7280;
+  }
+  .gate-card input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.1s;
+  }
+  .gate-card input:focus { border-color: #2563eb; }
+  .gate-card button {
+    margin-top: 12px;
+    width: 100%;
+    padding: 10px 14px;
+    background: #0a0a0a;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .gate-card button:hover { background: #1f2937; }
+  .gate-error {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #b91c1c;
+    min-height: 16px;
+  }
+  #app { display: none; }
+  #app.ready { display: block; }
 </style>
 </head>
 <body>
+
+<!-- ===== Password Gate ===== -->
+<div id="gate">
+  <div class="gate-card">
+    <h2>Claude Pipeline — AIG</h2>
+    <p>Enter the team password to view the dashboard.</p>
+    <form id="gate-form" autocomplete="off">
+      <input type="password" id="gate-input" placeholder="Password" autofocus autocomplete="off">
+      <button type="submit">Unlock</button>
+      <div class="gate-error" id="gate-error"></div>
+    </form>
+  </div>
+</div>
+
+<div id="app">
 <div class="container">
 
   <div class="header">
@@ -851,5 +933,52 @@
   renderCards(ISSUES);
   rerender();
 </script>
+
+</div><!-- /#app -->
+
+<script>
+  // ===== Password Gate =====
+  // SHA-256 of the team password. Anyone reading source can find this hash
+  // and either reverse-engineer or bypass the gate — this is obscurity, not
+  // security. Fine for low-sensitivity internal data; do not use to guard
+  // anything you actually need to protect.
+  const PASSWORD_HASH = "018d6759dff2644b0a1373ef28acf914351f323e0ceab218efa7681d13e9592d";
+  const SESSION_KEY = "aig-claude-dashboard-unlocked";
+
+  async function sha256(text) {
+    const enc = new TextEncoder().encode(text);
+    const buf = await crypto.subtle.digest("SHA-256", enc);
+    return Array.from(new Uint8Array(buf))
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
+
+  function unlock() {
+    document.getElementById("gate").classList.add("hidden");
+    document.getElementById("app").classList.add("ready");
+    try { sessionStorage.setItem(SESSION_KEY, "1"); } catch(_) {}
+  }
+
+  document.getElementById("gate-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = document.getElementById("gate-input");
+    const err = document.getElementById("gate-error");
+    err.textContent = "";
+    const candidate = await sha256(input.value.trim().toLowerCase());
+    if (candidate === PASSWORD_HASH) {
+      unlock();
+    } else {
+      err.textContent = "Incorrect password. Try again.";
+      input.value = "";
+      input.focus();
+    }
+  });
+
+  // Auto-unlock if already authenticated this session
+  try {
+    if (sessionStorage.getItem(SESSION_KEY) === "1") unlock();
+  } catch(_) {}
+</script>
+
 </body>
 </html>
