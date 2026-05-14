@@ -101,6 +101,58 @@
   a.key-link:hover { text-decoration: underline; }
 
   .summary-cell { color: #111; font-size: 13px; }
+
+  /* ===== Secondary filter row (Status + Priority) ===== */
+  .filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+    align-items: center;
+  }
+  .filter-row .filter-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 4px 8px 4px 12px;
+  }
+  .filter-row label {
+    font-size: 11px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-weight: 600;
+  }
+  .filter-row select {
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    color: #1a1a1a;
+    cursor: pointer;
+    padding: 5px 6px;
+    outline: none;
+    font-family: inherit;
+  }
+  .filter-row select:hover { color: #2563eb; }
+  .filter-row .clear-link {
+    margin-left: 4px;
+    font-size: 12px;
+    color: #6b7280;
+    cursor: pointer;
+    text-decoration: underline;
+    user-select: none;
+  }
+  .filter-row .clear-link:hover { color: #1a1a1a; }
+  .filter-row .result-count {
+    margin-left: auto;
+    font-size: 12px;
+    color: #6b7280;
+    font-variant-numeric: tabular-nums;
+  }
+
   .grid-wrapper { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; overflow: hidden; }
   .gridjs-wrapper { box-shadow: none !important; }
   .gridjs-table { font-size: 13px; }
@@ -219,19 +271,32 @@
 
   <div class="cards">
     <div class="card total"><div class="label">Total</div><div class="num" id="c-total">—</div></div>
-    <div class="card claude"><div class="label">Claude-specific</div><div class="num" id="c-claude">—</div></div>
+    <div class="card claude"><div class="label">MCP / Connectors</div><div class="num" id="c-mcp">—</div></div>
     <div class="card review"><div class="label">Awaiting Review</div><div class="num" id="c-review">—</div></div>
     <div class="card approved"><div class="label">Approved</div><div class="num" id="c-approved">—</div></div>
     <div class="card canceled"><div class="label">Canceled</div><div class="num" id="c-canceled">—</div></div>
   </div>
 
   <div class="controls">
-    <button class="pill active" data-filter="claude">Claude-specific <span class="count" id="n-claude"></span></button>
+    <button class="pill active" data-filter="mcp">MCP / Connectors <span class="count" id="n-mcp"></span></button>
     <button class="pill" data-filter="active">In Flight <span class="count" id="n-active"></span></button>
     <button class="pill" data-filter="approved">Approved <span class="count" id="n-approved"></span></button>
     <button class="pill" data-filter="awaiting">Awaiting Review <span class="count" id="n-awaiting"></span></button>
     <button class="pill" data-filter="canceled">Canceled <span class="count" id="n-canceled"></span></button>
     <button class="pill" data-filter="all">All <span class="count" id="n-all"></span></button>
+  </div>
+
+  <div class="filter-row">
+    <div class="filter-group">
+      <label for="status-filter">Status</label>
+      <select id="status-filter"><option value="">All</option></select>
+    </div>
+    <div class="filter-group">
+      <label for="priority-filter">Priority</label>
+      <select id="priority-filter"><option value="">All</option></select>
+    </div>
+    <span class="clear-link" id="clear-secondary">clear filters</span>
+    <span class="result-count" id="result-count"></span>
   </div>
 
   <div class="grid-wrapper">
@@ -801,7 +866,9 @@
 ];
   const SNAPSHOT_ISO = "2026-05-14T15:55:59.725196";
 
-  let CURRENT_FILTER = "claude";
+  let CURRENT_FILTER = "mcp";
+  let STATUS_FILTER = "";
+  let PRIORITY_FILTER = "";
 
   // ===== Helpers =====
   const CLAUDE_KEYWORDS = [
@@ -812,10 +879,19 @@
     "haiku 4",
     "cowork"
   ];
+  const MCP_KEYWORDS = [
+    "mcp",
+    "connector",
+    "integration"
+  ];
 
   function mentionsClaude(i) {
     const s = (i.summary || "").toLowerCase();
     return CLAUDE_KEYWORDS.some(k => s.includes(k));
+  }
+  function isMCPConnector(i) {
+    const s = (i.summary || "").toLowerCase();
+    return MCP_KEYWORDS.some(k => s.includes(k));
   }
   function isApproved(i) {
     const n = (i.status || "").toLowerCase();
@@ -859,6 +935,7 @@
 
   function applyFilter(issues, filter) {
     switch(filter) {
+      case "mcp": return issues.filter(isMCPConnector);
       case "claude": return issues.filter(mentionsClaude);
       case "approved": return issues.filter(isApproved);
       case "awaiting": return issues.filter(isAwaiting);
@@ -868,15 +945,22 @@
     }
   }
 
+  function applyAllFilters(issues) {
+    let result = applyFilter(issues, CURRENT_FILTER);
+    if (STATUS_FILTER) result = result.filter(i => (i.status || "") === STATUS_FILTER);
+    if (PRIORITY_FILTER) result = result.filter(i => (i.priority || "") === PRIORITY_FILTER);
+    return result;
+  }
+
   // ===== Rendering =====
   function renderCards(issues) {
     document.getElementById("c-total").textContent = issues.length;
-    document.getElementById("c-claude").textContent = issues.filter(mentionsClaude).length;
+    document.getElementById("c-mcp").textContent = issues.filter(isMCPConnector).length;
     document.getElementById("c-review").textContent = issues.filter(isAwaiting).length;
     document.getElementById("c-approved").textContent = issues.filter(isApproved).length;
     document.getElementById("c-canceled").textContent = issues.filter(isCanceled).length;
 
-    document.getElementById("n-claude").textContent = "(" + issues.filter(mentionsClaude).length + ")";
+    document.getElementById("n-mcp").textContent = "(" + issues.filter(isMCPConnector).length + ")";
     document.getElementById("n-active").textContent = "(" + issues.filter(i => !isCanceled(i)).length + ")";
     document.getElementById("n-approved").textContent = "(" + issues.filter(isApproved).length + ")";
     document.getElementById("n-awaiting").textContent = "(" + issues.filter(isAwaiting).length + ")";
@@ -884,14 +968,30 @@
     document.getElementById("n-all").textContent = "(" + issues.length + ")";
   }
 
-  function renderTable(issues) {
-    const mount = document.getElementById("table-mount");
-    mount.innerHTML = "";
-    if (issues.length === 0) {
-      mount.innerHTML = '<div style="padding:48px;text-align:center;color:#6b7280">No tickets match this filter.</div>';
-      return;
-    }
-    const rows = issues.map(i => {
+  function populateDropdowns(issues) {
+    const statuses = [...new Set(issues.map(i => i.status || "").filter(Boolean))].sort();
+    const priorities = [...new Set(issues.map(i => i.priority || "").filter(Boolean))].sort();
+    const statusSel = document.getElementById("status-filter");
+    const prioritySel = document.getElementById("priority-filter");
+    statuses.forEach(s => {
+      const o = document.createElement("option");
+      o.value = s; o.textContent = s;
+      statusSel.appendChild(o);
+    });
+    priorities.forEach(p => {
+      const o = document.createElement("option");
+      o.value = p; o.textContent = p;
+      prioritySel.appendChild(o);
+    });
+  }
+
+  function updateResultCount(n) {
+    const note = (STATUS_FILTER || PRIORITY_FILTER) ? " (filtered)" : "";
+    document.getElementById("result-count").textContent = n + " result" + (n === 1 ? "" : "s") + note;
+  }
+
+  function buildRows(issues) {
+    return issues.map(i => {
       const claudeTag = mentionsClaude(i) ? '<span class="claude-tag">CLAUDE</span>' : '';
       const summary = (i.summary || "").replace(/\bIntake\b\s*$/i, "").trim();
       return [
@@ -903,23 +1003,54 @@
         fmtDate(i.updated)
       ];
     });
-    new gridjs.Grid({
-      columns: [
-        { name: "Key", width: "90px", formatter: c => gridjs.html(c) },
-        { name: "Summary", formatter: c => gridjs.html(c) },
-        { name: "Status", width: "180px", formatter: c => gridjs.html(c) },
-        { name: "Priority", width: "110px", formatter: c => gridjs.html(c) },
-        { name: "Reporter", width: "150px" },
-        { name: "Updated", width: "120px" }
-      ],
-      data: rows,
-      sort: true,
-      search: { enabled: true, placeholder: "Search summary, key, reporter…" },
-      pagination: { enabled: true, limit: 25 }
-    }).render(mount);
   }
 
-  function rerender() { renderTable(applyFilter(ISSUES, CURRENT_FILTER)); }
+  let GRID = null;
+  let EMPTY_SHOWN = false;
+
+  function renderTable(issues) {
+    const mount = document.getElementById("table-mount");
+
+    if (issues.length === 0) {
+      // Tear down grid if present, show empty state
+      if (GRID) { GRID = null; }
+      mount.innerHTML = '<div style="padding:48px;text-align:center;color:#6b7280">No tickets match this filter.</div>';
+      EMPTY_SHOWN = true;
+      return;
+    }
+
+    const rows = buildRows(issues);
+
+    // If we were showing the empty state, clear it and force a fresh grid build
+    if (EMPTY_SHOWN || !GRID) {
+      mount.innerHTML = "";
+      GRID = new gridjs.Grid({
+        columns: [
+          { name: "Key", width: "90px", formatter: c => gridjs.html(c) },
+          { name: "Summary", formatter: c => gridjs.html(c) },
+          { name: "Status", width: "180px", formatter: c => gridjs.html(c) },
+          { name: "Priority", width: "110px", formatter: c => gridjs.html(c) },
+          { name: "Reporter", width: "150px" },
+          { name: "Updated", width: "120px" }
+        ],
+        data: rows,
+        sort: true,
+        search: { enabled: true, placeholder: "Search summary, key, reporter…" },
+        pagination: { enabled: true, limit: 25 }
+      });
+      GRID.render(mount);
+      EMPTY_SHOWN = false;
+    } else {
+      // Update existing grid in place — the canonical Grid.js pattern
+      GRID.updateConfig({ data: rows }).forceRender();
+    }
+  }
+
+  function rerender() {
+    const filtered = applyAllFilters(ISSUES);
+    renderTable(filtered);
+    updateResultCount(filtered.length);
+  }
 
   document.querySelectorAll(".pill").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -930,7 +1061,24 @@
     });
   });
 
+  document.getElementById("status-filter").addEventListener("change", (e) => {
+    STATUS_FILTER = e.target.value;
+    rerender();
+  });
+  document.getElementById("priority-filter").addEventListener("change", (e) => {
+    PRIORITY_FILTER = e.target.value;
+    rerender();
+  });
+  document.getElementById("clear-secondary").addEventListener("click", () => {
+    STATUS_FILTER = "";
+    PRIORITY_FILTER = "";
+    document.getElementById("status-filter").value = "";
+    document.getElementById("priority-filter").value = "";
+    rerender();
+  });
+
   renderCards(ISSUES);
+  populateDropdowns(ISSUES);
   rerender();
 </script>
 

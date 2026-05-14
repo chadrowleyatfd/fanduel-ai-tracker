@@ -11,9 +11,11 @@ project = "AIG" AND (text ~ "Claude" OR text ~ "connector" OR text ~ "MCP") ORDE
 ```
 
 It surfaces:
-- Five KPI cards (Total, Claude-specific, Awaiting Review, Approved, Canceled).
-- Six filter pills (default: **Claude-specific**). "Claude-specific" matches tickets whose summary references Claude, Anthropic, Opus 4.x, Sonnet 4.x, Haiku 4.x, or Cowork — so model-approval tickets like `AIG-177` (Opus 4.6 / Sonnet 4.6) are included even though the word "Claude" isn't in the title.
-- A searchable, sortable, paginated table of every ticket, with direct links into Jira.
+- Five KPI cards (Total, MCP / Connectors, Awaiting Review, Approved, Canceled).
+- Six filter pills (default: **MCP / Connectors**). "MCP / Connectors" matches tickets whose summary mentions MCP, Connector, or Integration.
+- Two secondary dropdown filters (Status, Priority) that stack on top of the active pill. Example: `MCP / Connectors` pill + `Awaiting Review` status + `P1-Blocker` priority → only the urgent unblocked MCP work.
+- A searchable, sortable, paginated table of every matching ticket, with direct links into Jira.
+- Rows that reference Claude, Anthropic, Opus 4.x, Sonnet 4.x, Haiku 4.x, or Cowork get a `CLAUDE` tag next to their summary, so the Claude-specific tickets are visually flagged inside the broader MCP view.
 
 ## How to host on GitHub Pages
 
